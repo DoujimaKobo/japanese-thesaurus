@@ -1,0 +1,10 @@
+{
+	"id": "local-dictionary",
+	"name": "Local Dictionary",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Search local dictionary files and Japanese thesaurus (WordNet) with fast indexed lookups. Supports Eijiro-style dictionaries and synset browsing.",
+	"author": "Your Name",
+	"authorUrl": "",
+	"isDesktopOnly": true
+}
