@@ -1,0 +1,47 @@
+# データの準備 (Data setup)
+
+このプラグインが使う3種類のデータと、その入手・配置方法です。
+
+## 1. Sudachi 同義語辞書 — 自動（操作不要）
+
+類語表示の主力データです。**プラグイン側が自動でダウンロード**します。
+
+1. 設定 → 「Sudachi 同義語辞書 (類語)」→ **有効化** をオン
+2. 初回のみ `synonyms.txt`（Apache-2.0, 約3MB）を取得し、
+   `<vault>/.obsidian/plugins/local-dictionary/assets/` にキャッシュします
+
+ライセンス: Apache-2.0 / Works Applications
+出典: https://github.com/WorksApplications/SudachiDict
+
+## 2. kuromoji 辞書 — 自動（操作不要・遅延）
+
+長い文を選択したときの**品詞分解（単語の切り出し）**に使います。
+単語1語の検索では読み込まれません。実際に必要になった初回だけ、
+辞書ファイル（Apache-2.0）を自動ダウンロードしてキャッシュします。
+
+## 3. 日本語 WordNet — 任意・手動配置
+
+類語の補助ソースです。使いたい場合のみ設定します。
+
+1. http://compling.hss.ntu.edu.sg/wnja/ または
+   https://github.com/bond-lab/wnja から日本語WordNetを入手
+2. アーカイブから次の2ファイルを取り出して任意の場所に置く
+   - `wnjpn-ok.tab`（語エントリ）
+   - `wnjpn-def.tab`（定義）
+3. 設定 → 「日本語 WordNet」→ 有効化し、上記2ファイルの**絶対パス**を入力
+4. 「WordNetインデックスを再構築」を実行
+
+ライセンス: BSD系 / NICT・Francis Bond ほか
+
+> SQLite 版 (`wnjpn.db`) しか手元にない場合は、`word` / `synset_def` テーブルを
+> 上記のタブ区切り形式に書き出してから使ってください。
+
+## 4. 語義辞書（英辞郎テキスト）— 任意・手動配置
+
+意味（語義）を引く辞書です。英辞郎形式のテキストに対応します。
+
+- 1行1エントリ、`■見出し語 : 語義` の形式（例: `docs/examples/sample-eijiro.txt`）
+- 設定で絶対パスと文字コード（UTF-8 / Shift-JIS）を指定し、インデックスを再構築
+
+> 英辞郎データは有償・著作物のため、本プラグインには同梱しません。
+> ご自身で入手したファイルを配置してください。

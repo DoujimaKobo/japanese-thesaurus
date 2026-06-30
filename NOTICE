@@ -1,0 +1,31 @@
+Local Dictionary & Japanese Thesaurus (Obsidian plugin)
+
+This product bundles and/or downloads third-party components:
+
+------------------------------------------------------------------------
+kuromoji.js
+  Bundled into main.js. Used for Japanese tokenization.
+  Copyright Takuya Asano and contributors.
+  Licensed under the Apache License, Version 2.0.
+  https://github.com/takuyaa/kuromoji.js
+  The kuromoji dictionary files (IPADIC-derived) are downloaded at runtime
+  from a CDN distribution of the kuromoji npm package and are likewise
+  licensed under the Apache License, Version 2.0.
+------------------------------------------------------------------------
+Sudachi Synonym Dictionary (SudachiDict / synonyms.txt)
+  Downloaded at runtime (not bundled in this repository). Used as the
+  primary Japanese synonym source.
+  Copyright Works Applications Co., Ltd.
+  Licensed under the Apache License, Version 2.0.
+  https://github.com/WorksApplications/SudachiDict
+------------------------------------------------------------------------
+Japanese WordNet (optional, user-provided)
+  Not distributed with this plugin. Provided by the user.
+  Copyright 2009-2011 NICT, 2012-2016 Francis Bond,
+  2016-2024 Francis Bond, Takayuki Kuribayashi, goki ohshima.
+  Released under a BSD-like license.
+  https://bond-lab.github.io/wnja/
+------------------------------------------------------------------------
+
+A copy of the Apache License, Version 2.0 is available at:
+  https://www.apache.org/licenses/LICENSE-2.0

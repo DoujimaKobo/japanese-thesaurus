@@ -8,6 +8,7 @@ export default tseslint.config(
 		languageOptions: {
 			globals: {
 				...globals.browser,
+					...globals.node,
 			},
 			parserOptions: {
 				projectService: {
@@ -22,6 +23,13 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		// The UI of this plugin is intentionally Japanese, so the English
+		// sentence-case heuristic produces false positives.
+		rules: {
+			'obsidianmd/ui/sentence-case': 'off',
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",

@@ -1,10 +1,7 @@
-import { Notice } from 'obsidian';
-import type LocalDictionaryPlugin from './main';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import * as iconv from 'iconv-lite';
-
-const fs = require('fs').promises;
-const fsSync = require('fs');
-const path = require('path');
+import type LocalDictionaryPlugin from '../main';
 
 export interface IndexEntry {
 	keyword: string;
@@ -21,10 +18,8 @@ export class DictionaryIndexer {
 		this.plugin = plugin;
 		this.index = new Map();
 
-		// Store index in plugin's data directory
-		const configDir = (this.plugin.app.vault.adapter as any).getBasePath();
-		const pluginDir = path.join(configDir, '.obsidian', 'plugins', 'local-dictionary');
-		this.indexPath = path.join(pluginDir, '.dictionary-index.json');
+		// Store the generated index alongside the plugin's other cached assets.
+		this.indexPath = path.join(plugin.assets.assetsDir, '.dictionary-index.json');
 	}
 
 	/**
@@ -40,7 +35,7 @@ export class DictionaryIndexer {
 
 		try {
 			await fs.access(dictPath);
-		} catch (e) {
+		} catch {
 			throw new Error('Cannot access dictionary file: ' + dictPath);
 		}
 
@@ -56,7 +51,7 @@ export class DictionaryIndexer {
 		const lines = fileContent.split('\n');
 
 		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
+			const line = lines[i] ?? '';
 			const lineBytes = this.plugin.settings.encoding === 'shift-jis'
 				? iconv.encode(line + '\n', 'shift_jis')
 				: Buffer.from(line + '\n', 'utf-8');
@@ -66,7 +61,7 @@ export class DictionaryIndexer {
 			const match = line.match(/^■(.+?)\s*[:：]\s*(.+)/);
 
 			if (match) {
-				const keyword = match[1].trim();
+				const keyword = (match[1] ?? '').trim();
 				const keywordLower = keyword.toLowerCase();
 
 				const entry: IndexEntry = {
@@ -91,7 +86,7 @@ export class DictionaryIndexer {
 
 			// Progress feedback for large files
 			if (processedLines % 10000 === 0) {
-				console.log(`Indexed ${processedLines} entries...`);
+				console.debug(`Indexed ${processedLines} entries...`);
 			}
 		}
 
@@ -108,7 +103,7 @@ export class DictionaryIndexer {
 		await fs.writeFile(this.indexPath, JSON.stringify(indexData, null, 2));
 
 		this.index = newIndex;
-		console.log(`Index built: ${processedLines} entries indexed`);
+		console.debug(`Index built: ${processedLines} entries indexed`);
 	}
 
 	/**
@@ -116,22 +111,29 @@ export class DictionaryIndexer {
 	 */
 	async loadIndex(): Promise<boolean> {
 		try {
-			const indexData = JSON.parse(await fs.readFile(this.indexPath, 'utf-8'));
+			const indexData = JSON.parse(
+				await fs.readFile(this.indexPath, 'utf-8')
+			) as {
+				dictionaryPath: string;
+				encoding: string;
+				entryCount: number;
+				index: [string, IndexEntry[]][];
+			};
 
 			// Verify index is for current dictionary
 			if (indexData.dictionaryPath !== this.plugin.settings.dictionaryPath ||
 				indexData.encoding !== this.plugin.settings.encoding) {
-				console.log('Index is for different dictionary/encoding, needs rebuild');
+				console.debug('Index is for different dictionary/encoding, needs rebuild');
 				return false;
 			}
 
 			// Reconstruct Map from array
 			this.index = new Map(indexData.index);
-			console.log(`Index loaded: ${indexData.entryCount} entries`);
+			console.debug(`Index loaded: ${indexData.entryCount} entries`);
 			return true;
 		} catch (e) {
 			const errorMessage = e instanceof Error ? e.message : String(e);
-			console.log('No existing index found or load failed:', errorMessage);
+			console.debug('No existing index found or load failed:', errorMessage);
 			return false;
 		}
 	}

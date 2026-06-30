@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-local-dictionary",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Japanese thesaurus & local dictionary for Obsidian: select text to see synonyms (Sudachi synonym dictionary + Japanese WordNet) and Eijiro-style definitions in a side panel.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -10,21 +10,31 @@
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},
-	"keywords": [],
-	"license": "0-BSD",
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"japanese",
+		"thesaurus",
+		"dictionary",
+		"sudachi",
+		"wordnet"
+	],
+	"license": "0BSD",
 	"devDependencies": {
+		"@eslint/js": "9.30.1",
+		"@types/kuromoji": "^0.1.3",
 		"@types/node": "^16.11.6",
 		"esbuild": "0.25.5",
 		"eslint-plugin-obsidianmd": "0.1.9",
 		"globals": "14.0.0",
+		"jiti": "2.6.1",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
-		"typescript-eslint": "8.35.1",
-		"@eslint/js": "9.30.1",
-		"jiti": "2.6.1"
+		"typescript-eslint": "8.35.1"
 	},
 	"dependencies": {
-		"obsidian": "latest",
-		"iconv-lite": "^0.6.3"
+		"iconv-lite": "^0.6.3",
+		"kuromoji": "^0.1.2",
+		"obsidian": "latest"
 	}
 }

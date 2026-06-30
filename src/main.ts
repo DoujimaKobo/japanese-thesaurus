@@ -1,249 +1,184 @@
-import { Editor, MarkdownView, Menu, Notice, Plugin } from 'obsidian';
+import { Editor, Menu, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, DictionarySettings, DictionarySettingTab } from './settings';
-import { DictionaryIndexer } from './indexer';
-import { DictionaryView, DICTIONARY_VIEW_TYPE } from './dictionaryView';
-import { ThesaurusIndexer } from './thesaurusIndexer';
-import { ThesaurusView, THESAURUS_VIEW_TYPE } from './thesaurusView';
+import { AssetManager } from './assetManager';
+import { Tokenizer } from './tokenizer';
+import { DictionaryIndexer } from './dictionary/dictionaryIndexer';
+import { DictionaryView, DICTIONARY_VIEW_TYPE } from './dictionary/dictionaryView';
+import { WordNetIndexer } from './thesaurus/wordnetIndexer';
+import { SudachiSynonymIndexer } from './thesaurus/sudachiSynonyms';
+import { ThesaurusView, THESAURUS_VIEW_TYPE } from './thesaurus/thesaurusView';
 
 export default class LocalDictionaryPlugin extends Plugin {
 	settings: DictionarySettings;
+	assets: AssetManager;
+	tokenizer: Tokenizer;
 	indexer: DictionaryIndexer;
-	thesaurusIndexer: ThesaurusIndexer;
+	wordnetIndexer: WordNetIndexer;
+	sudachiSynonyms: SudachiSynonymIndexer;
 
 	async onload() {
 		await this.loadSettings();
 
-		// Initialize indexers
+		this.assets = new AssetManager(this);
+		this.tokenizer = new Tokenizer(this);
 		this.indexer = new DictionaryIndexer(this);
-		this.thesaurusIndexer = new ThesaurusIndexer(this);
+		this.wordnetIndexer = new WordNetIndexer(this);
+		this.sudachiSynonyms = new SudachiSynonymIndexer(this);
 
-		// Register the dictionary view
-		this.registerView(
-			DICTIONARY_VIEW_TYPE,
-			(leaf) => new DictionaryView(leaf, this)
-		);
+		this.registerView(DICTIONARY_VIEW_TYPE, (leaf) => new DictionaryView(leaf, this));
+		this.registerView(THESAURUS_VIEW_TYPE, (leaf) => new ThesaurusView(leaf, this));
 
-		// Register the thesaurus view
-		this.registerView(
-			THESAURUS_VIEW_TYPE,
-			(leaf) => new ThesaurusView(leaf, this)
-		);
-
-		// Load existing indexes if available
-		if (this.settings.dictionaryPath) {
-			const loaded = await this.indexer.loadIndex();
-			if (!loaded) {
-				console.log('No valid dictionary index found. Please rebuild index in settings.');
-			}
-		}
-
-		if (this.settings.thesaurusEnabled) {
-			const loaded = await this.thesaurusIndexer.loadIndex();
-			if (!loaded) {
-				console.log('No valid thesaurus index found. Please rebuild index in settings.');
-			}
-		}
-
-		// Add command to open dictionary view
 		this.addCommand({
 			id: 'open-dictionary-view',
 			name: 'Open dictionary view',
 			callback: () => {
-				this.activateDictionaryView();
-			}
+				void this.activateView(DICTIONARY_VIEW_TYPE);
+			},
 		});
-
-		// Add command to search selected text
-		this.addCommand({
-			id: 'search-selected-text',
-			name: 'Search selected text in dictionary',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const selectedText = editor.getSelection().trim();
-				if (selectedText) {
-					this.searchInDictionary(selectedText);
-				} else {
-					new Notice('Please select text to search');
-				}
-			}
-		});
-
-		// Add command to open thesaurus view
 		this.addCommand({
 			id: 'open-thesaurus-view',
 			name: 'Open thesaurus view',
 			callback: () => {
-				this.activateThesaurusView();
-			}
+				void this.activateView(THESAURUS_VIEW_TYPE);
+			},
 		});
-
-		// Add command to search synonyms
+		this.addCommand({
+			id: 'search-selected-text',
+			name: 'Search selection in dictionary',
+			editorCallback: (editor: Editor) => this.searchFromEditor(editor, 'dictionary'),
+		});
 		this.addCommand({
 			id: 'search-synonyms',
-			name: 'Search synonyms in thesaurus',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const selectedText = editor.getSelection().trim();
-				if (selectedText) {
-					this.searchInThesaurus(selectedText);
-				} else {
-					new Notice('Please select text to search');
-				}
-			}
+			name: 'Search synonyms for selection',
+			editorCallback: (editor: Editor) => this.searchFromEditor(editor, 'thesaurus'),
 		});
 
-		// Register context menu for editor
 		this.registerEvent(
-			this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor, view: MarkdownView) => {
-				const selectedText = editor.getSelection().trim();
+			this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor) => {
+				const selection = editor.getSelection().trim();
+				if (!selection) return;
 
-				if (selectedText) {
-					// Dictionary search
-					if (this.settings.dictionaryPath) {
-						menu.addItem((item) => {
-							item
-								.setTitle('Search in Local Dictionary')
-								.setIcon('book-open')
-								.onClick(() => {
-									this.searchInDictionary(selectedText);
-								});
-						});
-					}
-
-					// Thesaurus search
-					if (this.settings.thesaurusEnabled) {
-						menu.addItem((item) => {
-							item
-								.setTitle('Search Synonyms (類語検索)')
-								.setIcon('network')
-								.onClick(() => {
-									this.searchInThesaurus(selectedText);
-								});
-						});
-					}
+				if (this.settings.dictionaryPath) {
+					menu.addItem((item) =>
+						item
+							.setTitle('辞書で検索 (Local Dictionary)')
+							.setIcon('book-open')
+							.onClick(() => {
+								void this.searchInDictionary(selection);
+							})
+					);
+				}
+				if (this.thesaurusAvailable()) {
+					menu.addItem((item) =>
+						item
+							.setTitle('類語を検索 (Thesaurus)')
+							.setIcon('network')
+							.onClick(() => {
+								void this.searchInThesaurus(selection);
+							})
+					);
 				}
 			})
 		);
 
-		// Add settings tab
 		this.addSettingTab(new DictionarySettingTab(this.app, this));
 
-		console.log('Local Dictionary Plugin loaded');
+		// Build/load indexes after the workspace is ready so we never block start-up.
+		this.app.workspace.onLayoutReady(() => {
+			this.loadIndexes().catch((e) => console.error('Index load failed:', e));
+		});
 	}
 
 	onunload() {
-		console.log('Local Dictionary Plugin unloaded');
+		// Registered views/events are cleaned up automatically by Obsidian.
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const stored = (await this.loadData()) as Partial<DictionarySettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
 
-	/**
-	 * Activate or reveal the dictionary view
-	 */
-	async activateDictionaryView() {
-		const { workspace } = this.app;
+	thesaurusAvailable(): boolean {
+		return this.sudachiSynonyms.isReady() || this.wordnetIndexer.isReady();
+	}
 
-		let leaf = workspace.getLeavesOfType(DICTIONARY_VIEW_TYPE)[0];
-
-		if (!leaf) {
-			// Create new leaf in right sidebar
-			const rightLeaf = workspace.getRightLeaf(false);
-			if (rightLeaf) {
-				await rightLeaf.setViewState({
-					type: DICTIONARY_VIEW_TYPE,
-					active: true,
-				});
-				leaf = rightLeaf;
-			}
+	/** Load whatever indexes are enabled in settings. Errors are non-fatal. */
+	async loadIndexes(): Promise<void> {
+		if (this.settings.dictionaryPath) {
+			await this.indexer.loadIndex();
 		}
-
-		if (leaf) {
-			workspace.revealLeaf(leaf);
+		if (this.settings.sudachiEnabled) {
+			await this.initSudachiSynonyms().catch((e) =>
+				console.error('Sudachi synonyms init failed:', e)
+			);
+		}
+		if (this.settings.wordnetEnabled && this.settings.wordnetWordsPath) {
+			await this.wordnetIndexer.loadIndex();
 		}
 	}
 
-	/**
-	 * Search for a word in the dictionary and display results
-	 */
-	async searchInDictionary(keyword: string) {
+	/** Ensure the Sudachi synonym dictionary is downloaded and indexed. */
+	async initSudachiSynonyms(forceRebuild = false): Promise<void> {
+		const sourcePath = await this.assets.ensureSudachiSynonyms();
+		if (!forceRebuild && (await this.sudachiSynonyms.loadIndex(sourcePath))) {
+			return;
+		}
+		const notice = new Notice('Sudachi同義語辞書をインデックス中…', 0);
+		try {
+			await this.sudachiSynonyms.buildIndex(sourcePath);
+		} finally {
+			notice.hide();
+		}
+	}
+
+	private searchFromEditor(editor: Editor, kind: 'dictionary' | 'thesaurus'): void {
+		const selection = editor.getSelection().trim();
+		if (!selection) {
+			new Notice('検索するテキストを選択してください');
+			return;
+		}
+		if (kind === 'dictionary') void this.searchInDictionary(selection);
+		else void this.searchInThesaurus(selection);
+	}
+
+	async searchInDictionary(keyword: string): Promise<void> {
 		if (!this.settings.dictionaryPath) {
-			new Notice('Please configure dictionary path in settings');
+			new Notice('設定で辞書ファイルのパスを指定してください');
 			return;
 		}
-
 		if (!this.indexer.isReady()) {
-			new Notice('Index not ready. Please rebuild index in settings.');
+			new Notice('辞書インデックスが未構築です。設定で再構築してください。');
 			return;
 		}
-
-		// Activate dictionary view
-		await this.activateDictionaryView();
-
-		// Get the view and trigger search
-		const leaves = this.app.workspace.getLeavesOfType(DICTIONARY_VIEW_TYPE);
-		if (leaves.length > 0 && leaves[0]) {
-			const leaf = leaves[0];
-			if (leaf.view) {
-				const view = leaf.view as DictionaryView;
-				await view.searchAndDisplay(keyword);
-			}
-		}
+		const view = await this.activateView(DICTIONARY_VIEW_TYPE);
+		if (view instanceof DictionaryView) await view.searchAndDisplay(keyword);
 	}
 
-	/**
-	 * Activate or reveal the thesaurus view
-	 */
-	async activateThesaurusView() {
+	async searchInThesaurus(keyword: string): Promise<void> {
+		if (!this.thesaurusAvailable()) {
+			new Notice('類語データが未読み込みです。設定で有効化してください。');
+			return;
+		}
+		const view = await this.activateView(THESAURUS_VIEW_TYPE);
+		if (view instanceof ThesaurusView) await view.searchAndDisplay(keyword);
+	}
+
+	/** Reveal (creating if needed) a view in the right sidebar and return it. */
+	async activateView(type: string): Promise<unknown> {
 		const { workspace } = this.app;
-
-		let leaf = workspace.getLeavesOfType(THESAURUS_VIEW_TYPE)[0];
-
+		let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(type)[0] ?? null;
 		if (!leaf) {
-			// Create new leaf in right sidebar
-			const rightLeaf = workspace.getRightLeaf(false);
-			if (rightLeaf) {
-				await rightLeaf.setViewState({
-					type: THESAURUS_VIEW_TYPE,
-					active: true,
-				});
-				leaf = rightLeaf;
-			}
+			leaf = workspace.getRightLeaf(false);
+			if (leaf) await leaf.setViewState({ type, active: true });
 		}
-
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
+			return leaf.view;
 		}
-	}
-
-	/**
-	 * Search for synonyms in the thesaurus and display results
-	 */
-	async searchInThesaurus(keyword: string) {
-		if (!this.settings.thesaurusEnabled) {
-			new Notice('Please enable thesaurus in settings');
-			return;
-		}
-
-		if (!this.thesaurusIndexer.isReady()) {
-			new Notice('Thesaurus index not ready. Please rebuild index in settings.');
-			return;
-		}
-
-		// Activate thesaurus view
-		await this.activateThesaurusView();
-
-		// Get the view and trigger search
-		const leaves = this.app.workspace.getLeavesOfType(THESAURUS_VIEW_TYPE);
-		if (leaves.length > 0 && leaves[0]) {
-			const leaf = leaves[0];
-			if (leaf.view) {
-				const view = leaf.view as ThesaurusView;
-				await view.searchAndDisplay(keyword);
-			}
-		}
+		return null;
 	}
 }

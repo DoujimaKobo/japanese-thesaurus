@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import type LocalDictionaryPlugin from './main';
+import type LocalDictionaryPlugin from '../main';
 
 export const DICTIONARY_VIEW_TYPE = 'local-dictionary-view';
 

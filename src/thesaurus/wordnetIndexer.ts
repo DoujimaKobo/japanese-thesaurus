@@ -1,10 +1,7 @@
-import { Notice } from 'obsidian';
-import type LocalDictionaryPlugin from './main';
-
-const fs = require('fs').promises;
-const path = require('path');
-const readline = require('readline');
-const fsSync = require('fs');
+import { promises as fs, createReadStream } from 'fs';
+import * as path from 'path';
+import * as readline from 'readline';
+import type LocalDictionaryPlugin from '../main';
 
 export interface ThesaurusSynset {
 	synsetId: string;
@@ -23,7 +20,7 @@ export interface ThesaurusSearchResult {
 	matchedText: string;
 }
 
-export class ThesaurusIndexer {
+export class WordNetIndexer {
 	plugin: LocalDictionaryPlugin;
 	indexPath: string;
 
@@ -37,24 +34,22 @@ export class ThesaurusIndexer {
 		this.wordIndex = new Map();
 		this.synsetData = new Map();
 
-		// Store index in plugin's data directory
-		const configDir = (this.plugin.app.vault.adapter as any).getBasePath();
-		const pluginDir = path.join(configDir, '.obsidian', 'plugins', 'local-dictionary');
-		this.indexPath = path.join(pluginDir, '.thesaurus-index.json');
+		// Store the generated index alongside the plugin's other cached assets.
+		this.indexPath = path.join(plugin.assets.assetsDir, '.wordnet-index.json');
 	}
 
 	/**
 	 * Build thesaurus index from WordNet TSV files
 	 */
 	async buildIndex(wordsPath: string, defsPath: string): Promise<void> {
-		console.log('Building thesaurus index...');
+		console.debug('Building thesaurus index...');
 
 		const newWordIndex = new Map<string, Set<string>>();
 		const newSynsetData = new Map<string, ThesaurusSynset>();
 
 		// Step 1: Parse words file
-		console.log('Parsing words file...');
-		const wordsStream = fsSync.createReadStream(wordsPath, { encoding: 'utf-8' });
+		console.debug('Parsing words file...');
+		const wordsStream = createReadStream(wordsPath, { encoding: 'utf-8' });
 		const wordsReader = readline.createInterface({
 			input: wordsStream,
 			crlfDelay: Infinity
@@ -64,8 +59,9 @@ export class ThesaurusIndexer {
 		for await (const line of wordsReader) {
 			const parts = line.split('\t');
 			if (parts.length >= 2) {
-				const synsetId = parts[0];
-				const word = parts[1];
+				const synsetId = parts[0] ?? '';
+				const word = parts[1] ?? '';
+				if (!synsetId || !word) continue;
 
 				// Add to synset data
 				if (!newSynsetData.has(synsetId)) {
@@ -92,15 +88,15 @@ export class ThesaurusIndexer {
 
 				wordCount++;
 				if (wordCount % 10000 === 0) {
-					console.log(`Processed ${wordCount} words...`);
+					console.debug(`Processed ${wordCount} words...`);
 				}
 			}
 		}
-		console.log(`Total words processed: ${wordCount}`);
+		console.debug(`Total words processed: ${wordCount}`);
 
 		// Step 2: Parse definitions file
-		console.log('Parsing definitions file...');
-		const defsStream = fsSync.createReadStream(defsPath, { encoding: 'utf-8' });
+		console.debug('Parsing definitions file...');
+		const defsStream = createReadStream(defsPath, { encoding: 'utf-8' });
 		const defsReader = readline.createInterface({
 			input: defsStream,
 			crlfDelay: Infinity
@@ -110,9 +106,10 @@ export class ThesaurusIndexer {
 		for await (const line of defsReader) {
 			const parts = line.split('\t');
 			if (parts.length >= 4) {
-				const synsetId = parts[0];
-				const english = parts[2];
-				const japanese = parts[3];
+				const synsetId = parts[0] ?? '';
+				const english = parts[2] ?? '';
+				const japanese = parts[3] ?? '';
+				if (!synsetId || !japanese) continue;
 
 				// Add to synset data
 				if (!newSynsetData.has(synsetId)) {
@@ -142,14 +139,14 @@ export class ThesaurusIndexer {
 
 				defCount++;
 				if (defCount % 10000 === 0) {
-					console.log(`Processed ${defCount} definitions...`);
+					console.debug(`Processed ${defCount} definitions...`);
 				}
 			}
 		}
-		console.log(`Total definitions processed: ${defCount}`);
+		console.debug(`Total definitions processed: ${defCount}`);
 
 		// Save index to disk
-		console.log('Saving index...');
+		console.debug('Saving index...');
 		const indexData = {
 			version: 1,
 			wordsPath,
@@ -168,7 +165,7 @@ export class ThesaurusIndexer {
 		this.wordIndex = newWordIndex;
 		this.synsetData = newSynsetData;
 
-		console.log(`Index built: ${newSynsetData.size} synsets, ${wordCount} words, ${defCount} definitions`);
+		console.debug(`Index built: ${newSynsetData.size} synsets, ${wordCount} words, ${defCount} definitions`);
 	}
 
 	/**
@@ -186,22 +183,25 @@ export class ThesaurusIndexer {
 	 */
 	async loadIndex(): Promise<boolean> {
 		try {
-			const indexData = JSON.parse(await fs.readFile(this.indexPath, 'utf-8'));
+			const indexData = JSON.parse(
+				await fs.readFile(this.indexPath, 'utf-8')
+			) as {
+				wordIndex: [string, string[]][];
+				synsetData: [string, ThesaurusSynset][];
+				synsetCount: number;
+			};
 
 			// Reconstruct Maps
 			this.wordIndex = new Map(
-				indexData.wordIndex.map(([word, synsets]: [string, string[]]) => [
-					word,
-					new Set(synsets)
-				])
+				indexData.wordIndex.map(([word, synsets]) => [word, new Set(synsets)])
 			);
 			this.synsetData = new Map(indexData.synsetData);
 
-			console.log(`Thesaurus index loaded: ${indexData.synsetCount} synsets`);
+			console.debug(`Thesaurus index loaded: ${indexData.synsetCount} synsets`);
 			return true;
 		} catch (e) {
 			const errorMessage = e instanceof Error ? e.message : String(e);
-			console.log('No existing thesaurus index found or load failed:', errorMessage);
+			console.debug('No existing thesaurus index found or load failed:', errorMessage);
 			return false;
 		}
 	}

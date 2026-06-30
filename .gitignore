@@ -18,9 +18,16 @@ main.js
 # obsidian
 data.json
 
-# Dictionary index cache (generated at runtime)
+# Downloaded data + generated index caches (runtime, per-vault)
+assets/
 .dictionary-index.json
 .thesaurus-index.json
+.wordnet-index.json
+.sudachi-synonyms-index.json
+
+# Local dictionary data should never be committed (user-provided / large)
+*.tab
+*.dic
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

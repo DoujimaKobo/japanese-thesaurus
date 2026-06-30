@@ -1,10 +1,10 @@
 {
 	"id": "local-dictionary",
-	"name": "Local Dictionary",
+	"name": "Local Dictionary & Japanese Thesaurus",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Search local dictionary files and Japanese thesaurus (WordNet) with fast indexed lookups. Supports Eijiro-style dictionaries and synset browsing.",
-	"author": "Your Name",
-	"authorUrl": "",
+	"minAppVersion": "1.4.0",
+	"description": "Select Japanese text to look up synonyms (Sudachi synonym dictionary + Japanese WordNet) and Eijiro-style definitions in a side panel. Longer selections are tokenized with kuromoji.",
+	"author": "siskclover",
+	"authorUrl": "https://github.com/siskclover",
 	"isDesktopOnly": true
 }
