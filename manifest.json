@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"minAppVersion": "1.4.0",
 	"description": "Select Japanese text to look up synonyms (Sudachi synonym dictionary + Japanese WordNet) and Eijiro-style definitions in a side panel. Longer selections are tokenized with kuromoji.",
-	"author": "siskclover",
-	"authorUrl": "https://github.com/siskclover",
+	"author": "DoujimaKobo",
+	"authorUrl": "https://github.com/DoujimaKobo",
 	"isDesktopOnly": true
 }
