@@ -106,19 +106,34 @@ export default class LocalDictionaryPlugin extends Plugin {
 		return this.sudachiSynonyms.isReady() || this.wordnetIndexer.isReady();
 	}
 
+	/** Re-render any open sidebar views so their status reflects loaded indexes. */
+	refreshViews(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(THESAURUS_VIEW_TYPE)) {
+			if (leaf.view instanceof ThesaurusView) leaf.view.refresh();
+		}
+		for (const leaf of this.app.workspace.getLeavesOfType(DICTIONARY_VIEW_TYPE)) {
+			if (leaf.view instanceof DictionaryView) leaf.view.refresh();
+		}
+	}
+
 	/** Load whatever indexes are enabled in settings. Errors are non-fatal. */
 	async loadIndexes(): Promise<void> {
 		if (this.settings.dictionaryPath) {
-			await this.indexer.loadIndex();
+			await this.indexer.loadIndex().catch((e) =>
+				console.error('Dictionary index load failed:', e)
+			);
 		}
 		if (this.settings.sudachiEnabled) {
 			await this.initSudachiSynonyms().catch((e) =>
 				console.error('Sudachi synonyms init failed:', e)
 			);
+			this.refreshViews();
 		}
 		if (this.settings.wordnetEnabled && this.settings.wordnetWordsPath) {
 			await this.wordnetIndexer.loadIndex();
 		}
+		// Refresh again once everything (incl. the large WordNet index) is ready.
+		this.refreshViews();
 	}
 
 	/** Ensure the Sudachi synonym dictionary is downloaded and indexed. */

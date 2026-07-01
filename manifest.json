@@ -1,7 +1,7 @@
 {
 	"id": "japanese-thesaurus",
 	"name": "Japanese Thesaurus",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"minAppVersion": "1.4.0",
 	"description": "Select Japanese text to look up synonyms (Sudachi synonym dictionary + Japanese WordNet) and Eijiro-style definitions in a side panel. Longer selections are tokenized with kuromoji.",
 	"author": "DoujimaKobo",

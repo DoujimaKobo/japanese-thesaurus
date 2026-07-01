@@ -39,6 +39,11 @@ export class ThesaurusView extends ItemView {
 		// no-op
 	}
 
+	/** Re-render the welcome/status screen (e.g. after indexes finish loading). */
+	refresh(): void {
+		this.renderWelcome();
+	}
+
 	private get body(): HTMLElement | null {
 		const el = this.containerEl.children[1];
 		return el instanceof HTMLElement ? el : null;

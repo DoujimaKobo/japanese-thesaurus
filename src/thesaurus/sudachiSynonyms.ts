@@ -111,7 +111,6 @@ export class SudachiSynonymIndexer {
 		const data = {
 			version: 1,
 			sourceSize: stat.size,
-			sourceMtimeMs: stat.mtimeMs,
 			groups: Array.from(this.groups.values()),
 		};
 		await fs.mkdir(path.dirname(this.indexPath), { recursive: true });
@@ -127,10 +126,11 @@ export class SudachiSynonymIndexer {
 			]);
 			const data = JSON.parse(cacheRaw) as {
 				sourceSize: number;
-				sourceMtimeMs: number;
 				groups: SynonymGroup[];
 			};
-			if (data.sourceSize !== stat.size || data.sourceMtimeMs !== stat.mtimeMs) {
+			// Validate by size only: mtime is unreliable on synced drives
+			// (e.g. Google Drive) and the source is a pinned download.
+			if (data.sourceSize !== stat.size) {
 				return false;
 			}
 			this.groups = new Map(data.groups.map((g) => [g.groupId, g]));

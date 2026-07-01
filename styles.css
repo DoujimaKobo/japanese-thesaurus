@@ -315,6 +315,7 @@
 }
 
 .thesaurus-def-text {
+	display: block;
 	color: var(--text-normal);
 	font-size: 0.95em;
 	line-height: 1.6;
@@ -325,6 +326,10 @@
 }
 
 .thesaurus-def-en-text {
+	display: block;
+	margin-top: 4px;
+	padding-top: 4px;
+	border-top: 1px solid var(--background-modifier-border);
 	color: var(--text-muted);
 	font-size: 0.85em;
 	font-style: italic;

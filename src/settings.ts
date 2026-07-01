@@ -104,6 +104,7 @@ export class DictionarySettingTab extends PluginSettingTab {
 						new Notice('辞書インデックスを構築中…');
 						try {
 							await this.plugin.indexer.buildIndex();
+							this.plugin.refreshViews();
 							new Notice('✓ 辞書インデックスを再構築しました');
 						} catch (e) {
 							new Notice('✗ 失敗: ' + (e instanceof Error ? e.message : String(e)));
@@ -127,6 +128,7 @@ export class DictionarySettingTab extends PluginSettingTab {
 					if (value) {
 						try {
 							await this.plugin.initSudachiSynonyms();
+							this.plugin.refreshViews();
 							new Notice('✓ Sudachi同義語辞書を読み込みました');
 						} catch (e) {
 							new Notice('✗ ' + (e instanceof Error ? e.message : String(e)));
@@ -150,6 +152,7 @@ export class DictionarySettingTab extends PluginSettingTab {
 						new Notice('Sudachi同義語辞書を再構築中…');
 						try {
 							await this.plugin.initSudachiSynonyms(true);
+							this.plugin.refreshViews();
 							new Notice('✓ 再構築しました');
 						} catch (e) {
 							new Notice('✗ ' + (e instanceof Error ? e.message : String(e)));
@@ -218,6 +221,7 @@ export class DictionarySettingTab extends PluginSettingTab {
 						new Notice('WordNetインデックスを構築中…');
 						try {
 							await this.plugin.wordnetIndexer.buildIndex(wordnetWordsPath, wordnetDefsPath);
+							this.plugin.refreshViews();
 							new Notice('✓ WordNetインデックスを再構築しました');
 							this.display();
 						} catch (e) {

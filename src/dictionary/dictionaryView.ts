@@ -40,6 +40,15 @@ export class DictionaryView extends ItemView {
 		// Cleanup if needed
 	}
 
+	/** Re-render the welcome/status screen (e.g. after indexes finish loading). */
+	refresh(): void {
+		const container = this.containerEl.children[1];
+		if (container instanceof HTMLElement) {
+			container.addClass('local-dictionary-view');
+			this.renderWelcome(container);
+		}
+	}
+
 	/**
 	 * Render welcome/empty state
 	 */

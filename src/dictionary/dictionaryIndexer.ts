@@ -48,6 +48,15 @@ export class DictionaryIndexer {
 		const fileContent = this.plugin.settings.encoding === 'shift-jis'
 			? iconv.decode(fileBuffer, 'shift_jis')
 			: fileBuffer.toString('utf-8');
+
+		// This feature parses Eijiro-style *text* (■word : meaning). A PDIC
+		// binary .dic file cannot be read here — fail with a clear message.
+		if (fileContent.includes('Dictionary for PDIC')) {
+			throw new Error(
+				'これはPDICバイナリ形式(.dic)のようです。この機能は英辞郎テキスト形式(■見出し語 : 語義)のみ対応しています。テキスト形式の辞書ファイルを指定してください。'
+			);
+		}
+
 		const lines = fileContent.split('\n');
 
 		for (let i = 0; i < lines.length; i++) {
@@ -88,6 +97,12 @@ export class DictionaryIndexer {
 			if (processedLines % 10000 === 0) {
 				console.debug(`Indexed ${processedLines} entries...`);
 			}
+		}
+
+		if (processedLines === 0) {
+			throw new Error(
+				'英辞郎形式(■見出し語 : 語義)のエントリが1件も見つかりませんでした。ファイル形式と文字コードを確認してください。'
+			);
 		}
 
 		// Save index to disk
