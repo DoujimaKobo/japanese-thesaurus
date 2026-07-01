@@ -1,4 +1,4 @@
-# Local Dictionary & Japanese Thesaurus for Obsidian
+# Japanese Thesaurus for Obsidian
 
 Select Japanese text in your notes and instantly see **synonyms** and
 **definitions** in a side panel — fully offline, backed by local data.
@@ -49,7 +49,7 @@ npm run lint
 ```
 
 To test locally, symlink or copy `main.js`, `manifest.json` and `styles.css`
-into `<vault>/.obsidian/plugins/local-dictionary/`.
+into `<vault>/.obsidian/plugins/japanese-thesaurus/`.
 
 ## Licenses
 

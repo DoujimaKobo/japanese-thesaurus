@@ -4,7 +4,7 @@ import type LocalDictionaryPlugin from './main';
 
 /**
  * Absolute path to this plugin's folder inside the vault
- * (e.g. <vault>/.obsidian/plugins/local-dictionary).
+ * (e.g. <vault>/.obsidian/plugins/japanese-thesaurus).
  */
 export function getPluginDir(plugin: LocalDictionaryPlugin): string {
 	const adapter = plugin.app.vault.adapter;
