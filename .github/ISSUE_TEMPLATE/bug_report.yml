@@ -1,0 +1,37 @@
+name: バグ報告 / Bug report
+description: 不具合の報告（日本語でOK / English OK）
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        趣味プロジェクトのため、対応はベストエフォートです。ご了承ください。
+        This is a best-effort hobby project — thanks for your patience.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 何が起きましたか / What happened?
+      description: 期待した動作と、実際の動作を書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順 / Steps to reproduce
+      placeholder: |
+        1. …を選択して
+        2. 右クリックで「類語を検索」
+        3. …
+  - type: input
+    id: env
+    attributes:
+      label: 環境 / Environment
+      description: OS と Obsidian のバージョン、プラグインのバージョン
+      placeholder: "Windows 11 / Obsidian 1.6.7 / plugin 1.0.0"
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: コンソールログ / Console log（任意）
+      description: "Ctrl+Shift+I の Console タブに出ているエラーがあれば貼ってください。"

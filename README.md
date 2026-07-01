@@ -1,5 +1,10 @@
 # Japanese Thesaurus for Obsidian
 
+> ⚠️ **Status: hobby project, best-effort support.** Maintained in my spare time.
+> Issues and questions are welcome (**日本語でOK**), but responses may be slow and
+> not every request will be addressed. Please include your OS and Obsidian version.
+
+
 Select Japanese text in your notes and instantly see **synonyms** and
 **definitions** in a side panel — fully offline, backed by local data.
 
