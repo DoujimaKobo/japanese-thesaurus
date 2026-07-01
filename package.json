@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-japanese-thesaurus",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Japanese thesaurus & local dictionary for Obsidian: select text to see synonyms (Sudachi synonym dictionary + Japanese WordNet) and Eijiro-style definitions in a side panel.",
 	"main": "main.js",
 	"type": "module",

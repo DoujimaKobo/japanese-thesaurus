@@ -12,6 +12,8 @@ export interface DictionarySettings {
 	wordnetEnabled: boolean;
 	wordnetWordsPath: string;
 	wordnetDefsPath: string;
+	/** Show the English gloss under each WordNet definition. */
+	showEnglishDefinitions: boolean;
 }
 
 export const DEFAULT_SETTINGS: DictionarySettings = {
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: DictionarySettings = {
 	wordnetEnabled: false,
 	wordnetWordsPath: '',
 	wordnetDefsPath: '',
+	showEnglishDefinitions: false,
 };
 
 export class DictionarySettingTab extends PluginSettingTab {
@@ -228,6 +231,17 @@ export class DictionarySettingTab extends PluginSettingTab {
 							new Notice('✗ 失敗: ' + (e instanceof Error ? e.message : String(e)));
 						}
 					})
+			);
+
+		new Setting(containerEl)
+			.setName('英語の定義も表示')
+			.setDesc('WordNetの各意味の下に英語の語釈を表示します。オフにすると日本語のみ。')
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.showEnglishDefinitions).onChange(async (value) => {
+					this.plugin.settings.showEnglishDefinitions = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshViews();
+				})
 			);
 	}
 }

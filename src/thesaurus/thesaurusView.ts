@@ -147,27 +147,30 @@ export class ThesaurusView extends ItemView {
 			text: `🔍 ${keyword}`,
 		});
 
-		const hasAny = terms.some((t) => t.sudachi.length || t.wordnet.length);
-		if (!hasAny) {
+		const sudachiReady = this.plugin.sudachiSynonyms.isReady();
+		const wordnetReady = this.plugin.wordnetIndexer.isReady();
+
+		if (!sudachiReady && !wordnetReady) {
 			const none = root.createDiv({ cls: 'thesaurus-no-results' });
-			none.createEl('p', { text: `「${keyword}」の類語が見つかりませんでした。` });
+			none.createEl('p', { text: '類語データが読み込まれていません。' });
 			none.createEl('p', {
-				text: '別の語や、活用していない形でお試しください。',
+				text: '設定でSudachi同義語辞書（またはWordNet）を有効化してください。',
 				cls: 'thesaurus-help-text',
 			});
 			return;
 		}
 
 		for (const term of terms) {
-			if (!term.sudachi.length && !term.wordnet.length) continue;
 			if (terms.length > 1) {
 				root.createEl('h4', {
 					text: `▸ ${term.term}`,
 					cls: 'thesaurus-term-heading',
 				});
 			}
-			if (term.sudachi.length) this.renderSudachi(root, term.sudachi, keyword);
-			if (term.wordnet.length) this.renderWordNet(root, term.wordnet, keyword);
+			// Enabled sources always show their heading (with an empty state
+			// when nothing matched), so it's clear each source was consulted.
+			if (sudachiReady) this.renderSudachi(root, term.sudachi, keyword);
+			if (wordnetReady) this.renderWordNet(root, term.wordnet, keyword);
 		}
 	}
 
@@ -197,6 +200,11 @@ export class ThesaurusView extends ItemView {
 		const section = root.createDiv({ cls: 'thesaurus-section' });
 		section.createEl('div', { text: 'Sudachi 同義語', cls: 'thesaurus-source-label' });
 
+		if (!results.length) {
+			section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
+			return;
+		}
+
 		results.forEach((group) => {
 			const groupDiv = section.createDiv({ cls: 'thesaurus-synset' });
 			if (group.pos) {
@@ -218,6 +226,13 @@ export class ThesaurusView extends ItemView {
 		const section = root.createDiv({ cls: 'thesaurus-section' });
 		section.createEl('div', { text: '日本語 WordNet', cls: 'thesaurus-source-label' });
 
+		if (!results.length) {
+			section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
+			return;
+		}
+
+		const showEnglish = this.plugin.settings.showEnglishDefinitions;
+
 		results.forEach((result) => {
 			const synsetDiv = section.createDiv({ cls: 'thesaurus-synset' });
 			if (result.matchType === 'definition') {
@@ -226,19 +241,20 @@ export class ThesaurusView extends ItemView {
 					cls: 'thesaurus-match-label',
 				});
 			}
+			// Meaning (definition) first, synonyms below.
+			result.synset.definitions.forEach((def) => {
+				const defDiv = synsetDiv.createDiv({ cls: 'thesaurus-definition' });
+				defDiv.createEl('span', { text: `📝 ${def.japanese}`, cls: 'thesaurus-def-text' });
+				if (showEnglish && def.english) {
+					defDiv.createEl('small', { text: def.english, cls: 'thesaurus-def-en-text' });
+				}
+			});
 			if (result.synset.words.length) {
 				const wordsDiv = synsetDiv.createDiv({ cls: 'thesaurus-words-list' });
 				result.synset.words.forEach((word, i) =>
 					this.renderWord(wordsDiv, word, keyword, i === result.synset.words.length - 1)
 				);
 			}
-			result.synset.definitions.forEach((def) => {
-				const defDiv = synsetDiv.createDiv({ cls: 'thesaurus-definition' });
-				defDiv.createEl('span', { text: `📝 ${def.japanese}`, cls: 'thesaurus-def-text' });
-				if (def.english) {
-					defDiv.createEl('small', { text: def.english, cls: 'thesaurus-def-en-text' });
-				}
-			});
 		});
 	}
 
