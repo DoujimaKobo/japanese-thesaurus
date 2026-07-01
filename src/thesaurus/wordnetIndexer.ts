@@ -124,19 +124,6 @@ export class WordNetIndexer {
 					synset.definitions.push({ japanese, english });
 				}
 
-				// Index by Japanese definition (for searching by definition text)
-				const defLower = japanese.toLowerCase();
-				const defWords = this.extractSearchableWords(defLower);
-				for (const defWord of defWords) {
-					if (!newWordIndex.has(defWord)) {
-						newWordIndex.set(defWord, new Set());
-					}
-					const defSynsets = newWordIndex.get(defWord);
-					if (defSynsets) {
-						defSynsets.add(synsetId);
-					}
-				}
-
 				defCount++;
 				if (defCount % 10000 === 0) {
 					console.debug(`Processed ${defCount} definitions...`);
@@ -148,7 +135,7 @@ export class WordNetIndexer {
 		// Save index to disk
 		console.debug('Saving index...');
 		const indexData = {
-			version: 1,
+			version: 2,
 			wordsPath,
 			defsPath,
 			synsetCount: newSynsetData.size,
@@ -169,16 +156,6 @@ export class WordNetIndexer {
 	}
 
 	/**
-	 * Extract searchable words from definition text
-	 */
-	private extractSearchableWords(text: string): string[] {
-		// Remove punctuation and split into words
-		const cleaned = text.replace(/[、。，．,.\s]+/g, ' ');
-		const words = cleaned.split(' ').filter(w => w.length > 1);
-		return words;
-	}
-
-	/**
 	 * Load existing index from disk
 	 */
 	async loadIndex(): Promise<boolean> {
@@ -186,10 +163,17 @@ export class WordNetIndexer {
 			const indexData = JSON.parse(
 				await fs.readFile(this.indexPath, 'utf-8')
 			) as {
+				version?: number;
 				wordIndex: [string, string[]][];
 				synsetData: [string, ThesaurusSynset][];
 				synsetCount: number;
 			};
+
+			// Old-format (definition-polluted) indexes must be rebuilt.
+			if (indexData.version !== 2) {
+				console.debug('WordNet index is an old format; needs rebuild.');
+				return false;
+			}
 
 			// Reconstruct Maps
 			this.wordIndex = new Map(
@@ -217,41 +201,13 @@ export class WordNetIndexer {
 		const keywordLower = keyword.toLowerCase().trim();
 		const results: ThesaurusSearchResult[] = [];
 
-		// Direct word match
+		// Exact match on a synset member word (= a genuine synonym relation).
 		const synsetIds = this.wordIndex.get(keywordLower);
 		if (synsetIds) {
 			for (const synsetId of synsetIds) {
 				const synset = this.synsetData.get(synsetId);
 				if (synset) {
-					results.push({
-						synset,
-						matchType: 'word',
-						matchedText: keyword
-					});
-				}
-			}
-		}
-
-		// Partial match in definitions (if no direct matches or few matches)
-		if (results.length < 3) {
-			const searchWords = this.extractSearchableWords(keywordLower);
-			for (const searchWord of searchWords) {
-				if (searchWord.length > 1) {
-					const partialSynsets = this.wordIndex.get(searchWord);
-					if (partialSynsets) {
-						for (const synsetId of partialSynsets) {
-							if (!results.some(r => r.synset.synsetId === synsetId)) {
-								const synset = this.synsetData.get(synsetId);
-								if (synset) {
-									results.push({
-										synset,
-										matchType: 'definition',
-										matchedText: searchWord
-									});
-								}
-							}
-						}
-					}
+					results.push({ synset, matchType: 'word', matchedText: keyword });
 				}
 			}
 		}

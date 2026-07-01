@@ -160,17 +160,23 @@ export class ThesaurusView extends ItemView {
 			return;
 		}
 
+		const single = terms.length === 1;
 		for (const term of terms) {
-			if (terms.length > 1) {
+			if (single) {
+				// Single word: always show each enabled source (with 該当なし),
+				// so it's clear every source was consulted.
+				if (sudachiReady) this.renderSudachi(root, term.sudachi, term.term, true);
+				if (wordnetReady) this.renderWordNet(root, term.wordnet, term.term, true);
+			} else {
+				// Long/multi-word selection: group under the matched word so it's
+				// obvious what each result came from; skip sources with no hits.
 				root.createEl('h4', {
 					text: `▸ ${term.term}`,
 					cls: 'thesaurus-term-heading',
 				});
+				if (term.sudachi.length) this.renderSudachi(root, term.sudachi, term.term, false);
+				if (term.wordnet.length) this.renderWordNet(root, term.wordnet, term.term, false);
 			}
-			// Enabled sources always show their heading (with an empty state
-			// when nothing matched), so it's clear each source was consulted.
-			if (sudachiReady) this.renderSudachi(root, term.sudachi, keyword);
-			if (wordnetReady) this.renderWordNet(root, term.wordnet, keyword);
 		}
 	}
 
@@ -195,13 +201,14 @@ export class ThesaurusView extends ItemView {
 	private renderSudachi(
 		root: HTMLElement,
 		results: SudachiSynonymResult[],
-		keyword: string
+		highlight: string,
+		showEmpty: boolean
 	): void {
 		const section = root.createDiv({ cls: 'thesaurus-section' });
 		section.createEl('div', { text: 'Sudachi 同義語', cls: 'thesaurus-source-label' });
 
 		if (!results.length) {
-			section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
+			if (showEmpty) section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
 			return;
 		}
 
@@ -213,7 +220,7 @@ export class ThesaurusView extends ItemView {
 			const wordsDiv = groupDiv.createDiv({ cls: 'thesaurus-words-list' });
 			const flat = group.lexemes.flat();
 			flat.forEach((word, i) =>
-				this.renderWord(wordsDiv, word, keyword, i === flat.length - 1)
+				this.renderWord(wordsDiv, word, highlight, i === flat.length - 1)
 			);
 		});
 	}
@@ -221,13 +228,14 @@ export class ThesaurusView extends ItemView {
 	private renderWordNet(
 		root: HTMLElement,
 		results: ThesaurusSearchResult[],
-		keyword: string
+		highlight: string,
+		showEmpty: boolean
 	): void {
 		const section = root.createDiv({ cls: 'thesaurus-section' });
 		section.createEl('div', { text: '日本語 WordNet', cls: 'thesaurus-source-label' });
 
 		if (!results.length) {
-			section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
+			if (showEmpty) section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
 			return;
 		}
 
@@ -235,12 +243,6 @@ export class ThesaurusView extends ItemView {
 
 		results.forEach((result) => {
 			const synsetDiv = section.createDiv({ cls: 'thesaurus-synset' });
-			if (result.matchType === 'definition') {
-				synsetDiv.createEl('small', {
-					text: '定義文からの一致',
-					cls: 'thesaurus-match-label',
-				});
-			}
 			// Meaning (definition) first, synonyms below.
 			result.synset.definitions.forEach((def) => {
 				const defDiv = synsetDiv.createDiv({ cls: 'thesaurus-definition' });
@@ -252,7 +254,7 @@ export class ThesaurusView extends ItemView {
 			if (result.synset.words.length) {
 				const wordsDiv = synsetDiv.createDiv({ cls: 'thesaurus-words-list' });
 				result.synset.words.forEach((word, i) =>
-					this.renderWord(wordsDiv, word, keyword, i === result.synset.words.length - 1)
+					this.renderWord(wordsDiv, word, highlight, i === result.synset.words.length - 1)
 				);
 			}
 		});

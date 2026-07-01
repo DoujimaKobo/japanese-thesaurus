@@ -129,8 +129,26 @@ export default class LocalDictionaryPlugin extends Plugin {
 			);
 			this.refreshViews();
 		}
-		if (this.settings.wordnetEnabled && this.settings.wordnetWordsPath) {
-			await this.wordnetIndexer.loadIndex();
+		if (
+			this.settings.wordnetEnabled &&
+			this.settings.wordnetWordsPath &&
+			this.settings.wordnetDefsPath
+		) {
+			const loaded = await this.wordnetIndexer.loadIndex();
+			if (!loaded) {
+				// Cache missing or an old format — rebuild once from the tab files.
+				const notice = new Notice('WordNetインデックスを構築中…', 0);
+				try {
+					await this.wordnetIndexer.buildIndex(
+						this.settings.wordnetWordsPath,
+						this.settings.wordnetDefsPath
+					);
+				} catch (e) {
+					console.error('WordNet rebuild failed:', e);
+				} finally {
+					notice.hide();
+				}
+			}
 		}
 		// Refresh again once everything (incl. the large WordNet index) is ready.
 		this.refreshViews();
