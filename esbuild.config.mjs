@@ -33,6 +33,10 @@ const context = await esbuild.context({
 		"@lezer/lr",
 		...builtinModules],
 	format: "cjs",
+	// Desktop-only plugin: build for Node so esbuild ignores the "browser"
+	// field of deps like kuromoji (which would otherwise swap in an
+	// XMLHttpRequest-based dictionary loader that can't read local files).
+	platform: "node",
 	target: "es2018",
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
