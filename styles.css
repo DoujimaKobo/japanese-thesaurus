@@ -431,10 +431,10 @@
 
 .thesaurus-pos {
 	display: inline-block;
-	margin-right: 0.4em;
-	padding: 0 0.4em;
+	margin-bottom: 5px;
+	padding: 1px 7px;
 	border-radius: 4px;
-	font-size: 0.7em;
-	color: var(--text-on-accent);
+	font-size: 0.75em;
+	color: var(--text-muted);
 	background: var(--background-modifier-border);
 }
