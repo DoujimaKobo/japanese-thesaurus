@@ -74,11 +74,11 @@ export class ThesaurusView extends ItemView {
 		const sudachi = this.plugin.sudachiSynonyms.getStats();
 		if (sudachi.groups > 0) {
 			stats.createEl('p', {
-				text: `🟢 Sudachi同義語: ${sudachi.groups.toLocaleString()} グループ / ${sudachi.words.toLocaleString()} 語`,
+				text: `Sudachi同義語: ${sudachi.groups.toLocaleString()} グループ / ${sudachi.words.toLocaleString()} 語`,
 			});
 		} else {
 			stats.createEl('p', {
-				text: '⚪ Sudachi同義語辞書: 未読み込み（設定で有効化してください）',
+				text: 'Sudachi同義語辞書: 未読み込み（設定で有効化してください）',
 				cls: 'thesaurus-warning',
 			});
 		}
@@ -86,22 +86,22 @@ export class ThesaurusView extends ItemView {
 		if (wn.synsets > 0) {
 			const expanded = this.plugin.wordnetIndexer.relationsReady() ? '（広めモード）' : '';
 			stats.createEl('p', {
-				text: `🟢 WordNet: ${wn.synsets.toLocaleString()} 意義素${expanded}`,
+				text: `WordNet: ${wn.synsets.toLocaleString()} 意義素${expanded}`,
 			});
 		} else {
 			stats.createEl('p', {
-				text: '⚪ 日本語WordNet: 未読み込み（任意・設定でファイルを指定）',
+				text: '日本語WordNet: 未読み込み（任意・設定でファイルを指定）',
 				cls: 'thesaurus-help-text',
 			});
 		}
 		const wlsp = this.plugin.wlsp.getStats();
 		if (wlsp.groups > 0) {
 			stats.createEl('p', {
-				text: `🟢 分類語彙表: ${wlsp.groups.toLocaleString()} グループ / ${wlsp.words.toLocaleString()} 語`,
+				text: `分類語彙表: ${wlsp.groups.toLocaleString()} グループ / ${wlsp.words.toLocaleString()} 語`,
 			});
 		} else {
 			stats.createEl('p', {
-				text: '⚪ 分類語彙表: 未読み込み（任意・設定で有効化）',
+				text: '分類語彙表: 未読み込み（任意・設定で有効化）',
 				cls: 'thesaurus-help-text',
 			});
 		}
@@ -175,7 +175,7 @@ export class ThesaurusView extends ItemView {
 	): void {
 		const root = container.createDiv({ cls: 'thesaurus-results' });
 		root.createDiv({ cls: 'thesaurus-header' }).createEl('h3', {
-			text: `🔍 ${keyword}`,
+			text: `検索：${keyword}`,
 		});
 
 		const sudachiReady = this.plugin.sudachiSynonyms.isReady();
@@ -206,15 +206,13 @@ export class ThesaurusView extends ItemView {
 				if (wordnetReady) this.renderWordNet(root, term.wordnet, term.term, true);
 				if (wlspReady) this.renderWlsp(root, term.wlsp, term.term, true);
 			} else {
-				// Long/multi-word selection: group under the matched word so it's
-				// obvious what each result came from; skip sources with no hits.
-				root.createEl('h4', {
-					text: `▸ ${term.term}`,
-					cls: 'thesaurus-term-heading',
-				});
-				if (term.sudachi.length) this.renderSudachi(root, term.sudachi, term.term, false);
-				if (term.wordnet.length) this.renderWordNet(root, term.wordnet, term.term, false);
-				if (term.wlsp.length) this.renderWlsp(root, term.wlsp, term.term, false);
+				// Long/multi-word selection: one collapsible section per matched
+				// word, collapsed by default so the user opens what they want.
+				const details = root.createEl('details', { cls: 'thesaurus-term' });
+				details.createEl('summary', { text: term.term });
+				if (term.sudachi.length) this.renderSudachi(details, term.sudachi, term.term, false);
+				if (term.wordnet.length) this.renderWordNet(details, term.wordnet, term.term, false);
+				if (term.wlsp.length) this.renderWlsp(details, term.wlsp, term.term, false);
 			}
 		}
 	}
@@ -286,7 +284,7 @@ export class ThesaurusView extends ItemView {
 			// Meaning (definition) first, synonyms below.
 			result.synset.definitions.forEach((def) => {
 				const defDiv = synsetDiv.createDiv({ cls: 'thesaurus-definition' });
-				defDiv.createEl('span', { text: `📝 ${def.japanese}`, cls: 'thesaurus-def-text' });
+				defDiv.createEl('span', { text: `意味：${def.japanese}`, cls: 'thesaurus-def-text' });
 				if (showEnglish && def.english) {
 					defDiv.createEl('small', { text: def.english, cls: 'thesaurus-def-en-text' });
 				}
@@ -339,7 +337,7 @@ export class ThesaurusView extends ItemView {
 
 	private renderError(container: HTMLElement, message: string): void {
 		const err = container.createDiv({ cls: 'thesaurus-error' });
-		err.createEl('h3', { text: '⚠️ エラー' });
+		err.createEl('h3', { text: 'エラー' });
 		err.createEl('p', { text: message });
 		err.createEl('p', {
 			text: '設定でデータが読み込まれているか確認してください。',

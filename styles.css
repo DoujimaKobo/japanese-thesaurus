@@ -423,10 +423,33 @@
 	margin-bottom: 0.25em;
 }
 
-.thesaurus-term-heading {
-	margin: 1em 0 0.25em;
-	font-size: 0.95em;
-	color: var(--text-muted);
+/* Collapsible per-word section (long selections) */
+.thesaurus-term {
+	margin: 6px 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.thesaurus-term > summary {
+	padding: 6px 10px;
+	background: var(--background-secondary);
+	font-weight: 600;
+	cursor: pointer;
+	list-style-position: inside;
+}
+
+.thesaurus-term > summary:hover {
+	color: var(--text-accent);
+}
+
+.thesaurus-term[open] > summary {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Indent a collapsed section's contents a little */
+.thesaurus-term > .thesaurus-section {
+	padding: 0 10px;
 }
 
 .thesaurus-pos {
