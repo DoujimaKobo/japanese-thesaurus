@@ -219,12 +219,9 @@ export class ThesaurusView extends ItemView {
 		}
 	}
 
-	private renderWord(
-		parent: HTMLElement,
-		word: string,
-		keyword: string,
-		isLast: boolean
-	): void {
+	// Words are rendered as chips; spacing between them is handled by CSS, so
+	// no textual separator is needed.
+	private renderWord(parent: HTMLElement, word: string, keyword: string): void {
 		const span = parent.createEl('span', { text: word, cls: 'thesaurus-word' });
 		if (word.toLowerCase() === keyword.toLowerCase()) {
 			span.addClass('thesaurus-word-highlight');
@@ -232,9 +229,6 @@ export class ThesaurusView extends ItemView {
 		span.addEventListener('click', () => {
 			void this.searchAndDisplay(word);
 		});
-		if (!isLast) {
-			parent.createEl('span', { text: ' ・ ', cls: 'thesaurus-separator' });
-		}
 	}
 
 	private renderSudachi(
@@ -257,10 +251,7 @@ export class ThesaurusView extends ItemView {
 				groupDiv.createEl('small', { text: group.pos, cls: 'thesaurus-pos' });
 			}
 			const wordsDiv = groupDiv.createDiv({ cls: 'thesaurus-words-list' });
-			const flat = group.lexemes.flat();
-			flat.forEach((word, i) =>
-				this.renderWord(wordsDiv, word, highlight, i === flat.length - 1)
-			);
+			group.lexemes.flat().forEach((word) => this.renderWord(wordsDiv, word, highlight));
 		});
 	}
 
@@ -302,18 +293,14 @@ export class ThesaurusView extends ItemView {
 			});
 			if (result.synset.words.length) {
 				const wordsDiv = synsetDiv.createDiv({ cls: 'thesaurus-words-list' });
-				result.synset.words.forEach((word, i) =>
-					this.renderWord(wordsDiv, word, highlight, i === result.synset.words.length - 1)
-				);
+				result.synset.words.forEach((word) => this.renderWord(wordsDiv, word, highlight));
 			}
 			// Expanded mode: similar / broader / narrower words of this synset.
 			if (expanded) {
 				for (const rel of this.plugin.wordnetIndexer.related(result.synset.synsetId)) {
 					const relDiv = synsetDiv.createDiv({ cls: 'thesaurus-related' });
 					relDiv.createEl('span', { text: `${rel.label}: `, cls: 'thesaurus-related-label' });
-					rel.words.forEach((word, i) =>
-						this.renderWord(relDiv, word, highlight, i === rel.words.length - 1)
-					);
+					rel.words.forEach((word) => this.renderWord(relDiv, word, highlight));
 				}
 			}
 		});
@@ -340,10 +327,7 @@ export class ThesaurusView extends ItemView {
 				groupDiv.createEl('small', { text: group.label, cls: 'thesaurus-pos' });
 			}
 			const wordsDiv = groupDiv.createDiv({ cls: 'thesaurus-words-list' });
-			const words = group.words.slice(0, CAP);
-			words.forEach((word, i) =>
-				this.renderWord(wordsDiv, word, highlight, i === words.length - 1)
-			);
+			group.words.slice(0, CAP).forEach((word) => this.renderWord(wordsDiv, word, highlight));
 			if (group.words.length > CAP) {
 				wordsDiv.createEl('span', {
 					text: ` …ほか${group.words.length - CAP}語`,
