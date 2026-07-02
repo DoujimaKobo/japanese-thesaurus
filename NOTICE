@@ -19,6 +19,20 @@ Sudachi Synonym Dictionary (SudachiDict / synonyms.txt)
   Licensed under the Apache License, Version 2.0.
   https://github.com/WorksApplications/SudachiDict
 ------------------------------------------------------------------------
+分類語彙表増補改訂版データベース (WLSP, optional)
+  Downloaded at runtime (not bundled in this repository). Used as an
+  additional related-words source.
+  Copyright National Institute for Japanese Language and Linguistics
+  (NINJAL, 国立国語研究所).
+  Licensed under CC BY-NC-SA 3.0.
+  https://github.com/masayu-a/WLSP
+  Citation: 国立国語研究所(2004)『分類語彙表増補改訂版データベース』(ver.1.0)
+------------------------------------------------------------------------
+Japanese WordNet synset relations (optional)
+  A relation table (hypernym/hyponym/similar/also links) extracted from
+  wnjpn.db of the Japanese WordNet project and redistributed as a release
+  asset of this plugin, under the Japanese WordNet license below.
+------------------------------------------------------------------------
 Japanese WordNet (optional, user-provided)
   Not distributed with this plugin. Provided by the user.
   Copyright 2009-2011 NICT, 2012-2016 Francis Bond,

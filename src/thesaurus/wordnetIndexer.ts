@@ -20,6 +20,28 @@ export interface ThesaurusSearchResult {
 	matchedText: string;
 }
 
+/** Related words of one synset, grouped by relation type. */
+export interface RelatedWords {
+	/** Japanese label, e.g. "近い意味" */
+	label: string;
+	words: string[];
+}
+
+const LINK_LABELS: Record<string, string> = {
+	sim: '近い意味',
+	also: '関連',
+	hype: 'より広い語',
+	hypo: 'より狭い語',
+};
+
+// Display order and per-type caps (hypo lists can be huge).
+const LINK_ORDER: [string, number][] = [
+	['sim', 20],
+	['also', 20],
+	['hype', 10],
+	['hypo', 20],
+];
+
 export class WordNetIndexer {
 	plugin: LocalDictionaryPlugin;
 	indexPath: string;
@@ -28,6 +50,8 @@ export class WordNetIndexer {
 	wordIndex: Map<string, Set<string>>;
 	// Maps: synset ID -> synset data
 	synsetData: Map<string, ThesaurusSynset>;
+	// Maps: synset ID -> [link type, target synset ID] (expanded mode)
+	relations: Map<string, [string, string][]> = new Map();
 
 	constructor(plugin: LocalDictionaryPlugin) {
 		this.plugin = plugin;
@@ -213,6 +237,65 @@ export class WordNetIndexer {
 		}
 
 		return results.slice(0, 20); // Limit to 20 results
+	}
+
+	/**
+	 * Load the synset-relation table (TSV: synset1 \t link \t synset2) used
+	 * by the expanded ("広め") thesaurus mode.
+	 */
+	async loadRelations(synlinkPath: string): Promise<void> {
+		const content = await fs.readFile(synlinkPath, 'utf-8');
+		const relations = new Map<string, [string, string][]>();
+		for (const line of content.split('\n')) {
+			const parts = line.split('\t');
+			if (parts.length < 3) continue;
+			const [s1, link, s2] = parts as [string, string, string];
+			let arr = relations.get(s1);
+			if (!arr) {
+				arr = [];
+				relations.set(s1, arr);
+			}
+			arr.push([link, s2.trim()]);
+		}
+		this.relations = relations;
+		console.debug(`WordNet relations loaded: ${relations.size} synsets`);
+	}
+
+	relationsReady(): boolean {
+		return this.relations.size > 0;
+	}
+
+	/**
+	 * Japanese words related to a synset (similar / broader / narrower),
+	 * grouped by relation type. Only returns words present in the loaded
+	 * Japanese word data.
+	 */
+	related(synsetId: string): RelatedWords[] {
+		const links = this.relations.get(synsetId);
+		if (!links) return [];
+
+		const byType = new Map<string, string[]>();
+		for (const [link, target] of links) {
+			const synset = this.synsetData.get(target);
+			if (!synset || !synset.words.length) continue;
+			let words = byType.get(link);
+			if (!words) {
+				words = [];
+				byType.set(link, words);
+			}
+			for (const w of synset.words) {
+				if (!words.includes(w)) words.push(w);
+			}
+		}
+
+		const results: RelatedWords[] = [];
+		for (const [link, cap] of LINK_ORDER) {
+			const words = byType.get(link);
+			if (words && words.length) {
+				results.push({ label: LINK_LABELS[link] ?? link, words: words.slice(0, cap) });
+			}
+		}
+		return results;
 	}
 
 	/**

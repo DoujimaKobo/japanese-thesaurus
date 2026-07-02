@@ -2,13 +2,21 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import type LocalDictionaryPlugin from '../main';
 import type { ThesaurusSearchResult } from './wordnetIndexer';
 import type { SudachiSynonymResult } from './sudachiSynonyms';
+import type { WlspGroup } from './wlsp';
 
 export const THESAURUS_VIEW_TYPE = 'thesaurus-view';
+
+// Selections longer than this (or containing punctuation/whitespace) are
+// treated as phrases and tokenized instead of being looked up verbatim.
+// NB: \s already matches the ideographic space U+3000 in JS regexes.
+const PHRASE_RE = /[\s、。，．・！？!?「」『』（）()]/;
+const PHRASE_LENGTH = 8;
 
 interface TermResult {
 	term: string;
 	sudachi: SudachiSynonymResult[];
 	wordnet: ThesaurusSearchResult[];
+	wlsp: WlspGroup[];
 }
 
 export class ThesaurusView extends ItemView {
@@ -76,12 +84,24 @@ export class ThesaurusView extends ItemView {
 		}
 		const wn = this.plugin.wordnetIndexer.getStats();
 		if (wn.synsets > 0) {
+			const expanded = this.plugin.wordnetIndexer.relationsReady() ? '（広めモード）' : '';
 			stats.createEl('p', {
-				text: `🟢 WordNet: ${wn.synsets.toLocaleString()} 意義素`,
+				text: `🟢 WordNet: ${wn.synsets.toLocaleString()} 意義素${expanded}`,
 			});
 		} else {
 			stats.createEl('p', {
 				text: '⚪ 日本語WordNet: 未読み込み（任意・設定でファイルを指定）',
+				cls: 'thesaurus-help-text',
+			});
+		}
+		const wlsp = this.plugin.wlsp.getStats();
+		if (wlsp.groups > 0) {
+			stats.createEl('p', {
+				text: `🟢 分類語彙表: ${wlsp.groups.toLocaleString()} グループ / ${wlsp.words.toLocaleString()} 語`,
+			});
+		} else {
+			stats.createEl('p', {
+				text: '⚪ 分類語彙表: 未読み込み（任意・設定で有効化）',
 				cls: 'thesaurus-help-text',
 			});
 		}
@@ -115,26 +135,37 @@ export class ThesaurusView extends ItemView {
 		const wordnet = this.plugin.wordnetIndexer.isReady()
 			? await this.plugin.wordnetIndexer.search(term)
 			: [];
-		return { term, sudachi, wordnet };
+		const wlsp = this.plugin.wlsp.isReady() ? this.plugin.wlsp.search(term) : [];
+		return { term, sudachi, wordnet, wlsp };
+	}
+
+	private hasHits(r: TermResult): boolean {
+		return r.sudachi.length > 0 || r.wordnet.length > 0 || r.wlsp.length > 0;
 	}
 
 	/**
-	 * Look up the whole selection first. Only if that finds nothing do we pay
-	 * to tokenize (which may download the kuromoji dictionary) and try the
-	 * content words it contains.
+	 * Short selections are looked up verbatim first. Phrases (whitespace,
+	 * punctuation, or simply long) go straight to tokenization: looking a
+	 * whole sentence up verbatim only produces noisy partial matches, and
+	 * per-word results are far easier to interpret.
 	 */
 	private async collectResults(keyword: string): Promise<TermResult[]> {
-		const whole = await this.searchTerm(keyword);
-		if (whole.sudachi.length || whole.wordnet.length) return [whole];
+		const isPhrase = keyword.length > PHRASE_LENGTH || PHRASE_RE.test(keyword);
+
+		if (!isPhrase) {
+			const whole = await this.searchTerm(keyword);
+			if (this.hasHits(whole)) return [whole];
+		}
 
 		const terms = await this.plugin.tokenizer.lookupTerms(keyword);
 		const results: TermResult[] = [];
 		for (const term of terms) {
-			if (term === keyword) continue;
+			if (term === keyword && isPhrase) continue;
 			const r = await this.searchTerm(term);
-			if (r.sudachi.length || r.wordnet.length) results.push(r);
+			if (this.hasHits(r)) results.push(r);
 		}
-		return results.length ? results : [whole];
+		if (results.length) return results;
+		return [await this.searchTerm(keyword)];
 	}
 
 	private renderResults(
@@ -149,24 +180,31 @@ export class ThesaurusView extends ItemView {
 
 		const sudachiReady = this.plugin.sudachiSynonyms.isReady();
 		const wordnetReady = this.plugin.wordnetIndexer.isReady();
+		const wlspReady = this.plugin.wlsp.isReady();
 
-		if (!sudachiReady && !wordnetReady) {
+		if (!sudachiReady && !wordnetReady && !wlspReady) {
 			const none = root.createDiv({ cls: 'thesaurus-no-results' });
 			none.createEl('p', { text: '類語データが読み込まれていません。' });
 			none.createEl('p', {
-				text: '設定でSudachi同義語辞書（またはWordNet）を有効化してください。',
+				text: '設定でSudachi同義語辞書などを有効化してください。',
 				cls: 'thesaurus-help-text',
 			});
 			return;
 		}
 
 		const single = terms.length === 1;
+		if (single && !this.hasHits(terms[0]!)) {
+			root.createDiv({ cls: 'thesaurus-no-results' }).createEl('p', {
+				text: `「${keyword}」の類語が見つかりませんでした。`,
+			});
+		}
 		for (const term of terms) {
 			if (single) {
 				// Single word: always show each enabled source (with 該当なし),
 				// so it's clear every source was consulted.
 				if (sudachiReady) this.renderSudachi(root, term.sudachi, term.term, true);
 				if (wordnetReady) this.renderWordNet(root, term.wordnet, term.term, true);
+				if (wlspReady) this.renderWlsp(root, term.wlsp, term.term, true);
 			} else {
 				// Long/multi-word selection: group under the matched word so it's
 				// obvious what each result came from; skip sources with no hits.
@@ -176,6 +214,7 @@ export class ThesaurusView extends ItemView {
 				});
 				if (term.sudachi.length) this.renderSudachi(root, term.sudachi, term.term, false);
 				if (term.wordnet.length) this.renderWordNet(root, term.wordnet, term.term, false);
+				if (term.wlsp.length) this.renderWlsp(root, term.wlsp, term.term, false);
 			}
 		}
 	}
@@ -240,9 +279,19 @@ export class ThesaurusView extends ItemView {
 		}
 
 		const showEnglish = this.plugin.settings.showEnglishDefinitions;
+		const expanded =
+			this.plugin.settings.wordnetExpanded &&
+			this.plugin.wordnetIndexer.relationsReady();
 
 		results.forEach((result) => {
 			const synsetDiv = section.createDiv({ cls: 'thesaurus-synset' });
+			// Say why this synset matched when it wasn't a direct word hit.
+			if (result.matchType === 'definition') {
+				synsetDiv.createEl('small', {
+					text: `定義文に「${result.matchedText}」を含む`,
+					cls: 'thesaurus-match-label',
+				});
+			}
 			// Meaning (definition) first, synonyms below.
 			result.synset.definitions.forEach((def) => {
 				const defDiv = synsetDiv.createDiv({ cls: 'thesaurus-definition' });
@@ -256,6 +305,50 @@ export class ThesaurusView extends ItemView {
 				result.synset.words.forEach((word, i) =>
 					this.renderWord(wordsDiv, word, highlight, i === result.synset.words.length - 1)
 				);
+			}
+			// Expanded mode: similar / broader / narrower words of this synset.
+			if (expanded) {
+				for (const rel of this.plugin.wordnetIndexer.related(result.synset.synsetId)) {
+					const relDiv = synsetDiv.createDiv({ cls: 'thesaurus-related' });
+					relDiv.createEl('span', { text: `${rel.label}: `, cls: 'thesaurus-related-label' });
+					rel.words.forEach((word, i) =>
+						this.renderWord(relDiv, word, highlight, i === rel.words.length - 1)
+					);
+				}
+			}
+		});
+	}
+
+	private renderWlsp(
+		root: HTMLElement,
+		results: WlspGroup[],
+		highlight: string,
+		showEmpty: boolean
+	): void {
+		const section = root.createDiv({ cls: 'thesaurus-section' });
+		section.createEl('div', { text: '分類語彙表', cls: 'thesaurus-source-label' });
+
+		if (!results.length) {
+			if (showEmpty) section.createEl('p', { text: '該当なし', cls: 'thesaurus-empty' });
+			return;
+		}
+
+		const CAP = 40;
+		results.forEach((group) => {
+			const groupDiv = section.createDiv({ cls: 'thesaurus-synset' });
+			if (group.label) {
+				groupDiv.createEl('small', { text: group.label, cls: 'thesaurus-pos' });
+			}
+			const wordsDiv = groupDiv.createDiv({ cls: 'thesaurus-words-list' });
+			const words = group.words.slice(0, CAP);
+			words.forEach((word, i) =>
+				this.renderWord(wordsDiv, word, highlight, i === words.length - 1)
+			);
+			if (group.words.length > CAP) {
+				wordsDiv.createEl('span', {
+					text: ` …ほか${group.words.length - CAP}語`,
+					cls: 'thesaurus-empty',
+				});
 			}
 		});
 	}

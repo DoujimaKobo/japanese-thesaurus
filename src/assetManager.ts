@@ -1,6 +1,7 @@
 import { Notice, requestUrl } from 'obsidian';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { gunzipSync } from 'zlib';
 import type LocalDictionaryPlugin from './main';
 import { getAssetsDir } from './paths';
 
@@ -36,8 +37,19 @@ const KUROMOJI_DICT_FILES = [
 	'unk_pos.dat.gz',
 ];
 
+// 分類語彙表 (WLSP) — NINJAL, CC BY-NC-SA 3.0. Shift-JIS CSV.
+const WLSP_URL =
+	'https://raw.githubusercontent.com/masayu-a/WLSP/master/bunruidb.txt';
+
+// WordNet synset relations (hype/hypo/sim/also), extracted from wnjpn.db
+// (Japanese WordNet, BSD-like license) and republished as a plugin data asset.
+const WORDNET_SYNLINK_URL =
+	'https://github.com/DoujimaKobo/japanese-thesaurus/releases/download/data-1/wnjpn-synlink.tab.gz';
+
 export const SUDACHI_SYNONYMS_FILENAME = 'sudachi-synonyms.txt';
 export const KUROMOJI_DICT_DIRNAME = 'kuromoji-dict';
+export const WLSP_FILENAME = 'bunruidb.txt';
+export const WORDNET_SYNLINK_FILENAME = 'wnjpn-synlink.tab';
 
 export class AssetManager {
 	plugin: LocalDictionaryPlugin;
@@ -56,6 +68,14 @@ export class AssetManager {
 
 	get kuromojiDictDir(): string {
 		return path.join(this.assetsDir, KUROMOJI_DICT_DIRNAME);
+	}
+
+	get wlspPath(): string {
+		return path.join(this.assetsDir, WLSP_FILENAME);
+	}
+
+	get wordnetSynlinkPath(): string {
+		return path.join(this.assetsDir, WORDNET_SYNLINK_FILENAME);
 	}
 
 	private async exists(p: string): Promise<boolean> {
@@ -132,6 +152,54 @@ export class AssetManager {
 		} catch (e) {
 			throw new Error(
 				'kuromoji辞書のダウンロードに失敗しました: ' +
+					(e instanceof Error ? e.message : String(e))
+			);
+		} finally {
+			notice.hide();
+		}
+	}
+
+	/**
+	 * Ensure the 分類語彙表 (WLSP) database is present, downloading it if
+	 * needed. The file stays in its original Shift-JIS encoding; the indexer
+	 * decodes it. Returns the local path.
+	 */
+	async ensureWlsp(): Promise<string> {
+		if (await this.exists(this.wlspPath)) {
+			return this.wlspPath;
+		}
+		const notice = new Notice('分類語彙表をダウンロード中… (約9MB)', 0);
+		try {
+			await this.download(WLSP_URL, this.wlspPath);
+			return this.wlspPath;
+		} catch (e) {
+			throw new Error(
+				'分類語彙表のダウンロードに失敗しました: ' +
+					(e instanceof Error ? e.message : String(e))
+			);
+		} finally {
+			notice.hide();
+		}
+	}
+
+	/**
+	 * Ensure the WordNet synset-relation table (for the expanded thesaurus
+	 * mode) is present, downloading and un-gzipping it if needed.
+	 */
+	async ensureWordnetSynlink(): Promise<string> {
+		if (await this.exists(this.wordnetSynlinkPath)) {
+			return this.wordnetSynlinkPath;
+		}
+		const notice = new Notice('WordNet関連語データをダウンロード中…', 0);
+		try {
+			const res = await requestUrl({ url: WORDNET_SYNLINK_URL, throw: true });
+			const unzipped = gunzipSync(Buffer.from(res.arrayBuffer));
+			await fs.mkdir(path.dirname(this.wordnetSynlinkPath), { recursive: true });
+			await fs.writeFile(this.wordnetSynlinkPath, unzipped);
+			return this.wordnetSynlinkPath;
+		} catch (e) {
+			throw new Error(
+				'WordNet関連語データのダウンロードに失敗しました: ' +
 					(e instanceof Error ? e.message : String(e))
 			);
 		} finally {

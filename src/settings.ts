@@ -14,6 +14,10 @@ export interface DictionarySettings {
 	wordnetDefsPath: string;
 	/** Show the English gloss under each WordNet definition. */
 	showEnglishDefinitions: boolean;
+	/** Expanded WordNet mode: also show similar/broader/narrower words. */
+	wordnetExpanded: boolean;
+	/** 分類語彙表 (WLSP) as an additional related-words source. */
+	wlspEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: DictionarySettings = {
@@ -24,6 +28,8 @@ export const DEFAULT_SETTINGS: DictionarySettings = {
 	wordnetWordsPath: '',
 	wordnetDefsPath: '',
 	showEnglishDefinitions: false,
+	wordnetExpanded: false,
+	wlspEnabled: false,
 };
 
 export class DictionarySettingTab extends PluginSettingTab {
@@ -41,6 +47,7 @@ export class DictionarySettingTab extends PluginSettingTab {
 		this.renderDictionarySection(containerEl);
 		this.renderSudachiSection(containerEl);
 		this.renderWordNetSection(containerEl);
+		this.renderWlspSection(containerEl);
 	}
 
 	private async pathExists(p: string): Promise<boolean> {
@@ -243,5 +250,81 @@ export class DictionarySettingTab extends PluginSettingTab {
 					this.plugin.refreshViews();
 				})
 			);
+
+		new Setting(containerEl)
+			.setName('関連語も表示（広めモード）')
+			.setDesc(
+				'近い意味・より広い語・より狭い語も表示します。初回に関連語データ（約1MB）を自動ダウンロードします。'
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.wordnetExpanded).onChange(async (value) => {
+					this.plugin.settings.wordnetExpanded = value;
+					await this.plugin.saveSettings();
+					if (value) {
+						try {
+							await this.plugin.initWordnetRelations();
+							new Notice('✓ WordNet関連語データを読み込みました');
+						} catch (e) {
+							new Notice('✗ ' + (e instanceof Error ? e.message : String(e)));
+						}
+					}
+					this.plugin.refreshViews();
+				})
+			);
+	}
+
+	private renderWlspSection(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName('分類語彙表 (広い関連語)').setHeading();
+
+		new Setting(containerEl)
+			.setName('分類語彙表を有効化')
+			.setDesc(
+				'国立国語研究所の分類語彙表（CC BY-NC-SA 3.0, 約9MB）を初回に自動ダウンロードし、意味の近い語のグループを表示します。'
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.wlspEnabled).onChange(async (value) => {
+					this.plugin.settings.wlspEnabled = value;
+					await this.plugin.saveSettings();
+					if (value) {
+						try {
+							await this.plugin.initWlsp();
+							new Notice('✓ 分類語彙表を読み込みました');
+						} catch (e) {
+							new Notice('✗ ' + (e instanceof Error ? e.message : String(e)));
+						}
+					}
+					this.plugin.refreshViews();
+					this.display();
+				})
+			);
+
+		if (this.plugin.settings.wlspEnabled) {
+			const stats = this.plugin.wlsp.getStats();
+			new Setting(containerEl)
+				.setName('状態')
+				.setDesc(
+					stats.groups > 0
+						? `読み込み済み: ${stats.groups.toLocaleString()} グループ / ${stats.words.toLocaleString()} 語`
+						: '未読み込み（再構築を実行してください）'
+				)
+				.addButton((button) =>
+					button.setButtonText('再ダウンロード／再構築').onClick(async () => {
+						new Notice('分類語彙表を再構築中…');
+						try {
+							await this.plugin.initWlsp(true);
+							this.plugin.refreshViews();
+							new Notice('✓ 再構築しました');
+						} catch (e) {
+							new Notice('✗ ' + (e instanceof Error ? e.message : String(e)));
+						}
+						this.display();
+					})
+				);
+
+			containerEl.createEl('p', {
+				text: '出典: 国立国語研究所(2004)『分類語彙表増補改訂版データベース』(ver.1.0) — CC BY-NC-SA 3.0',
+				cls: 'setting-item-description',
+			});
+		}
 	}
 }

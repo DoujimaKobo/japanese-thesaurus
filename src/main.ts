@@ -6,6 +6,7 @@ import { DictionaryIndexer } from './dictionary/dictionaryIndexer';
 import { DictionaryView, DICTIONARY_VIEW_TYPE } from './dictionary/dictionaryView';
 import { WordNetIndexer } from './thesaurus/wordnetIndexer';
 import { SudachiSynonymIndexer } from './thesaurus/sudachiSynonyms';
+import { WlspIndexer } from './thesaurus/wlsp';
 import { ThesaurusView, THESAURUS_VIEW_TYPE } from './thesaurus/thesaurusView';
 
 export default class LocalDictionaryPlugin extends Plugin {
@@ -15,6 +16,7 @@ export default class LocalDictionaryPlugin extends Plugin {
 	indexer: DictionaryIndexer;
 	wordnetIndexer: WordNetIndexer;
 	sudachiSynonyms: SudachiSynonymIndexer;
+	wlsp: WlspIndexer;
 
 	async onload() {
 		await this.loadSettings();
@@ -24,6 +26,7 @@ export default class LocalDictionaryPlugin extends Plugin {
 		this.indexer = new DictionaryIndexer(this);
 		this.wordnetIndexer = new WordNetIndexer(this);
 		this.sudachiSynonyms = new SudachiSynonymIndexer(this);
+		this.wlsp = new WlspIndexer(this);
 
 		this.registerView(DICTIONARY_VIEW_TYPE, (leaf) => new DictionaryView(leaf, this));
 		this.registerView(THESAURUS_VIEW_TYPE, (leaf) => new ThesaurusView(leaf, this));
@@ -103,7 +106,11 @@ export default class LocalDictionaryPlugin extends Plugin {
 	}
 
 	thesaurusAvailable(): boolean {
-		return this.sudachiSynonyms.isReady() || this.wordnetIndexer.isReady();
+		return (
+			this.sudachiSynonyms.isReady() ||
+			this.wordnetIndexer.isReady() ||
+			this.wlsp.isReady()
+		);
 	}
 
 	/** Re-render any open sidebar views so their status reflects loaded indexes. */
@@ -149,9 +156,37 @@ export default class LocalDictionaryPlugin extends Plugin {
 					notice.hide();
 				}
 			}
+			if (this.settings.wordnetExpanded) {
+				await this.initWordnetRelations().catch((e) =>
+					console.error('WordNet relations init failed:', e)
+				);
+			}
+		}
+		if (this.settings.wlspEnabled) {
+			await this.initWlsp().catch((e) => console.error('WLSP init failed:', e));
 		}
 		// Refresh again once everything (incl. the large WordNet index) is ready.
 		this.refreshViews();
+	}
+
+	/** Ensure the WordNet relation table is downloaded and loaded. */
+	async initWordnetRelations(): Promise<void> {
+		const synlinkPath = await this.assets.ensureWordnetSynlink();
+		await this.wordnetIndexer.loadRelations(synlinkPath);
+	}
+
+	/** Ensure the 分類語彙表 is downloaded and indexed. */
+	async initWlsp(forceRebuild = false): Promise<void> {
+		const sourcePath = await this.assets.ensureWlsp();
+		if (!forceRebuild && (await this.wlsp.loadIndex(sourcePath))) {
+			return;
+		}
+		const notice = new Notice('分類語彙表をインデックス中…', 0);
+		try {
+			await this.wlsp.buildIndex(sourcePath);
+		} finally {
+			notice.hide();
+		}
 	}
 
 	/** Ensure the Sudachi synonym dictionary is downloaded and indexed. */
